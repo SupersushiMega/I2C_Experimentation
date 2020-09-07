@@ -118,11 +118,13 @@ int main(void)
 	
 	float tmp;	//Variable for storage of temporary data
 	
+	uint8_t isActive = 1; //Used to check if All Blocks have been destroyed
+	
 	uint8_t collided = 0;	//Variable to check if Ball has already collided with a Block
 	uint8_t collided_Platform = 0;	//Variable to check if the last collision with of the ball was with Rectangle
 	
 	uint8_t Frame = 0;	//Current Frame
-	uint8_t UpdateFrequency = 1; //The amount of Frames between DisplayUpdates
+	uint8_t UpdateFrequency = 8; //The amount of Frames between DisplayUpdates
 	
 	uint8_t BlockGridSize[2];
 	BlockGridSize[0] =	10;	//Horizontal Size
@@ -134,24 +136,28 @@ int main(void)
 	
 	uint8_t BlocksStatus[BlockGridSize[0]][BlockGridSize[1]];
 	
-	uint16_t Score = 0;	//Variable to store PlayerScore;
+	uint64_t Score = 0;	//Variable to store PlayerScore;
 	int x;
 	int y;
-	for (x = 0; x < BlockGridSize[0]; x++)
+	void BuildGrid(void)
 	{
-		for (y = 0; y < BlockGridSize[1]; y++)
+		for (x = 0; x < BlockGridSize[0]; x++)
 		{
-			fore = rand();
-			BlocksStatus[x][y] = 1;
-			MoveTo(x * (BlockSize[0]) + BlockDist, (size / 2) + (y * BlockSize[1]) + BlockDist);
-			FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
+			for (y = 0; y < BlockGridSize[1]; y++)
+			{
+				fore = rand();
+				BlocksStatus[x][y] = 1;
+				MoveTo(x * (BlockSize[0]) + BlockDist, (size / 2) + (y * BlockSize[1]) + BlockDist);
+				FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
+			}
 		}
 	}
+	BuildGrid();
 	int8_t RectX;
 	int8_t RectY;
 	
 	float BallMove[] = {0, -1};
-	uint16_t BallData[] = {size / 2, size / 2, 3, 2};	//Data for Ball {x Coordinate, y Coordinate, radius, thickness of outside line}
+	uint16_t BallData[] = {size / 2, size / 2, 2, 2};	//Data for Ball {x Coordinate, y Coordinate, radius, thickness of outside line}
 	long double BallCoord[] = {size / 2, size / 2};
 	uint16_t BallLastRenderedPos[] = {size / 2, size / 2};	//The last rendered Position of the Ball 
 	
@@ -276,7 +282,10 @@ int main(void)
 				BallMove[0] = -1;
 			}
 			collided_Platform = 1;
-			sprintf(buffer, "%d", BallCoord);
+			if (isActive == 0)
+			{
+				BuildGrid();
+			}
 		}
 		//==============================================================
 		
@@ -288,8 +297,11 @@ int main(void)
 			BallData[1] = (size / 2) - 10;
 			BallCoord[0] = size / 2;
 			BallCoord[1] = (size / 2) - 10;
-			BallMove[0] = -1;
+			BallMove[0] = 0;
 			BallMove[1] = -1;
+			Score = 0;
+			ClearDisplay();
+			BuildGrid();
 			collided_Platform = 0;
 		}
 		//==============================================================
@@ -297,6 +309,7 @@ int main(void)
 		//Check if Ball is Coliding with Block
 		//==============================================================
 		collided = 0;
+		isActive = 0;
 		for (y = 0; y < BlockGridSize[1]; y++)
 		{
 			for (x = 0; x < BlockGridSize[0]; x++)
@@ -304,7 +317,7 @@ int main(void)
 				MoveTo(x * (BlockSize[0]) + BlockDist, (size / 2) + (y * BlockSize[1]) + BlockDist);
 				if (BlocksStatus[x][y] == 1)
 				{
-					if (collided != 10)
+					if (collided == 0)
 					{
 						fore = BLACK;
 						//Check if Ball is Coliding with Block horizontal side
@@ -317,15 +330,12 @@ int main(void)
 							collided = 1;
 							collided_Platform = 0;
 							Score++;
-							fore = RED;
-							MoveTo(10,0);
-							PlotString("A");
 						}
 						//==============================================================
 		
 						//Check if Ball is Coliding with Block vertical side
 						//==============================================================
-						else if ((BallData[0] + BallData[2] == (x * BlockSize[0]) || ((BallData[0] - BallData[2]) == ((x * BlockSize[0]) + BlockSize[0]))) && (((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1]))))
+						else if ((BallData[0] + BallData[2] == (x * BlockSize[0]) || (BallData[0] - BallData[2] == ((x * BlockSize[0]) + BlockSize[0]))) && (((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1]))))
 						{
 							BlocksStatus[x][y] = 0;
 							BallMove[0] = -BallMove[0];
@@ -333,14 +343,23 @@ int main(void)
 							collided = 1;
 							collided_Platform = 0;
 							Score++;
-							fore = RED;
-							MoveTo(10,0);
-							PlotString("B");
 						}
 						//==============================================================
-		
 						
+						//Check if Ball is inside Block
+						//==============================================================
+						else if ((BallData[0]) > (x * BlockSize[0]) && (BallData[0]) < ((x * BlockSize[0]) + BlockSize[0]) && (((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1]))))
+						{
+							BlocksStatus[x][y] = 0;
+							BallMove[0] = -BallMove[0];
+							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
+							collided = 1;
+							collided_Platform = 0;
+							Score++;
+						}
+						//==============================================================
 					}
+					isActive = 1;
 				}
 			}
 		}
@@ -370,8 +389,8 @@ int main(void)
 			
 			MoveTo(10,0);
 			fore = RED;
-			//~ sprintf(buffer, "Score = %d", Score);
-			//~ PlotString(buffer);
+			sprintf(buffer, "Score = %d", Score);
+			PlotString(buffer);
 		}
 		//==============================================================
 	}
