@@ -118,48 +118,60 @@ int main(void)
 	
 	float tmp;	//Variable for storage of temporary data
 	
-	uint8_t collided = 0;
+	uint8_t collided = 0;	//Variable to check if Ball has already collided with a Block
+	uint8_t collided_Platform = 0;	//Variable to check if the last collision with of the ball was with Rectangle
+	
+	uint8_t Frame = 0;	//Current Frame
+	uint8_t UpdateFrequency = 1; //The amount of Frames between DisplayUpdates
 	
 	uint8_t BlockGridSize[2];
-	BlockGridSize[0] =	20;	//Horizontal Size
-	BlockGridSize[1] =	8;	//Vertical Size
+	BlockGridSize[0] =	10;	//Horizontal Size
+	BlockGridSize[1] =	5;	//Vertical Size
 	
 	uint8_t BlockSize[2];
 	BlockSize[0] = (size / BlockGridSize[0]);
 	BlockSize[1] = ((size / 2) / BlockGridSize[1]);
 	
 	uint8_t BlocksStatus[BlockGridSize[0]][BlockGridSize[1]];
+	
+	uint16_t Score = 0;	//Variable to store PlayerScore;
 	int x;
 	int y;
 	for (x = 0; x < BlockGridSize[0]; x++)
 	{
 		for (y = 0; y < BlockGridSize[1]; y++)
 		{
+			fore = rand();
 			BlocksStatus[x][y] = 1;
 			MoveTo(x * (BlockSize[0]) + BlockDist, (size / 2) + (y * BlockSize[1]) + BlockDist);
 			FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
 		}
 	}
 	int8_t RectX;
-	float BallMove[] = {-1, -1};
-	uint8_t BallData[] = {size / 2, size / 2, 3, 2};	//Data for Ball {x Coordinate, y Coordinate, radius, thickness of outside line}
-	float BallCoord[] = {size / 2, size / 2};
+	int8_t RectY;
+	
+	float BallMove[] = {0, -1};
+	uint16_t BallData[] = {size / 2, size / 2, 3, 2};	//Data for Ball {x Coordinate, y Coordinate, radius, thickness of outside line}
+	long double BallCoord[] = {size / 2, size / 2};
+	uint16_t BallLastRenderedPos[] = {size / 2, size / 2};	//The last rendered Position of the Ball 
 	
 	RectX = 0;
+	RectY = 10;
 	while (1)
 	{
+		Frame++;
 		//Input and RectangleClear
 		//==============================================================
 		fore = BLACK;
 		if (T3)
 		{
-			MoveTo(RectX - 1,0);
+			MoveTo(RectX - 1, RectY);
 			FillRect(2, rectHeight);
 			RectX += rectSpeed;
 		}
 		else if (T1)
 		{
-			MoveTo(RectX + rectWidth,0);
+			MoveTo(RectX + rectWidth, RectY);
 			FillRect(2, rectHeight);
 			RectX -= rectSpeed;
 		}
@@ -168,17 +180,17 @@ int main(void)
 		
 		//Autoplay
 		//==============================================================
-		if (0)
+		if (1)
 		{
 			if(BallData[0] > (RectX + (rectWidth / 2)))
 			{
-				MoveTo(RectX - 1,0);
+				MoveTo(RectX - 1, RectY);
 				FillRect(2, rectHeight);
 				RectX += rectSpeed;
 			}
 			else
 			{
-				MoveTo(RectX + rectWidth,0);
+				MoveTo(RectX + rectWidth, RectY);
 				FillRect(2, rectHeight);
 				RectX -= rectSpeed;
 			}
@@ -186,16 +198,12 @@ int main(void)
 		
 		//==============================================================
 		
-		//Ball movement and CircleClear
+		//Ball movement
 		//==============================================================
-		for (i = 0; i != BallData[3]; i++)
-		{
-			glcd_draw_circle(BallData[0], BallData[1], BallData[2]-i);
-		}
 		BallCoord[0] += BallMove[0];
 		BallCoord[1] += BallMove[1];
-		BallData[0] = round(BallCoord[0]);
-		BallData[1] = round(BallCoord[1]);
+		BallData[0] = BallCoord[0];
+		BallData[1] = BallCoord[1];
 		//==============================================================
 		
 		//Check if Rectangle is Coliding with Wall
@@ -204,6 +212,7 @@ int main(void)
 		{
 			RectX =	size - rectWidth;
 		}
+		
 		else if (RectX <= 0)
 		{
 			RectX = 0;
@@ -212,104 +221,157 @@ int main(void)
 		
 		//Check if Ball is Coliding with Wall
 		//==============================================================
-		if (BallData[0] > size - BallData[2] || BallData[0] < BallData[2])
+		if (BallData[0] > size - BallData[2])
 		{
+			BallData[0] = size - BallData[2] - 3;
+			BallCoord[0] = size - BallData[2] - 3;
 			BallMove[0] = -BallMove[0];
+			collided_Platform = 0;
+		}
+		else if(BallData[0] < BallData[2])
+		{
+			BallData[0] = BallData[2];
+			BallCoord[0] = BallData[2];
+			BallMove[0] = -BallMove[0];
+			collided_Platform = 0;
 		}
 		//==============================================================
 		
 		//Check if Ball is Coliding with Roof
 		//==============================================================
-		else if (BallData[1] > size - BallData[2])
+		if (BallData[1] > size - BallData[2])
 		{
 			BallMove[1] = -BallMove[1];
-		}
-		//==============================================================
-		
-		//Check if Ball is Coliding Floor for ball reset
-		//==============================================================
-		else if (BallData[1] < 3)
-		{
-			BallData[0] = size / 2;
-			BallData[1] = size / 2;
-			BallMove[0] = -1;
-			BallMove[1] = -1;
+			collided_Platform = 0;
 		}
 		//==============================================================
 		
 		//Check if Ball is Coliding with Rectangle
 		//==============================================================
-		else if ((BallData[1] < (rectHeight + BallData[2]) && (BallData[0] < (rectWidth + RectX)) && (BallData[0] > RectX)))
+		if ((BallData[1] < (RectY + rectHeight + BallData[2]) && (BallData[0] < (rectWidth + RectX)) && (BallData[0] > RectX)) && collided_Platform != 1)
 		{
 			tmp = ((BallCoord[0] - RectX) / rectWidth);
-			BallMove[0] = (tmp * 2) * (round(BallMove[0]) / abs(round(BallMove[0]))); 
+			if (BallMove[0] < 0)
+			{
+				BallMove[0] = tmp * 2 * -1; 
+			}
+			
+			else if (BallMove[0] > 0)
+			{
+				BallMove[0] = tmp * 2; 
+			}
+			else
+			{
+				BallMove[0] = 0.1;
+			}
 			BallMove[1] = -BallMove[1];
+			
+			if(BallMove[0] > 1)
+			{
+				BallMove[0] = 1;
+			}
+			
+			else if(BallMove[0] < -1)
+			{
+				BallMove[0] = -1;
+			}
+			collided_Platform = 1;
+			sprintf(buffer, "%d", BallCoord);
+		}
+		//==============================================================
+		
+		//Check if Ball is Coliding Floor for ball reset
+		//==============================================================
+		if (BallData[1] < 3)
+		{
+			BallData[0] = size / 2;
+			BallData[1] = (size / 2) - 10;
+			BallCoord[0] = size / 2;
+			BallCoord[1] = (size / 2) - 10;
+			BallMove[0] = -1;
+			BallMove[1] = -1;
+			collided_Platform = 0;
 		}
 		//==============================================================
 		
 		//Check if Ball is Coliding with Block
 		//==============================================================
+		collided = 0;
 		for (y = 0; y < BlockGridSize[1]; y++)
 		{
-			collided = 0;
 			for (x = 0; x < BlockGridSize[0]; x++)
 			{
 				MoveTo(x * (BlockSize[0]) + BlockDist, (size / 2) + (y * BlockSize[1]) + BlockDist);
 				if (BlocksStatus[x][y] == 1)
 				{
-					if (collided == 0)
+					if (collided != 10)
 					{
 						fore = BLACK;
-						
 						//Check if Ball is Coliding with Block horizontal side
 						//==============================================================
-						if (BallData[0] + BallData[2] > (x * BlockSize[0]) && BallData[0] - BallData[2] < ((x * BlockSize[0]) + BlockSize[0]) && (((BallData[1] - (size / 2)) == (y * BlockSize[1])) || ((BallData[1] - (size / 2)) == ((y * BlockSize[1]) + BlockSize[1]))))
+						if ((BallData[0] + BallData[2]) > (x * BlockSize[0]) && (BallData[0] - BallData[2]) < ((x * BlockSize[0]) + BlockSize[0]) && (((BallData[1] - (size / 2)) == (y * BlockSize[1])) || ((BallData[1] - (size / 2)) == ((y * BlockSize[1]) + BlockSize[1]))))
 						{
 							BlocksStatus[x][y] = 0;
 							BallMove[1] = -BallMove[1];
 							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
 							collided = 1;
+							collided_Platform = 0;
+							Score++;
+							fore = RED;
+							MoveTo(10,0);
+							PlotString("A");
 						}
 						//==============================================================
 		
 						//Check if Ball is Coliding with Block vertical side
 						//==============================================================
-						else if ((BallData[0] + BallData[2] == (x * BlockSize[0]) || BallData[0] - BallData[2] == ((x * BlockSize[0]) + BlockSize[0])) && ((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1])))
+						else if ((BallData[0] + BallData[2] == (x * BlockSize[0]) || ((BallData[0] - BallData[2]) == ((x * BlockSize[0]) + BlockSize[0]))) && (((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1]))))
 						{
 							BlocksStatus[x][y] = 0;
 							BallMove[0] = -BallMove[0];
 							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
 							collided = 1;
+							collided_Platform = 0;
+							Score++;
+							fore = RED;
+							MoveTo(10,0);
+							PlotString("B");
 						}
 						//==============================================================
 		
-						//Check if Ball is inside Block
-						//==============================================================
-						else if ((BallData[0] < (x * BlockSize[0]) && BallData[0] > ((x * BlockSize[0]) + BlockSize[0])) && ((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1])))
-						{
-							BlocksStatus[x][y] = 0;
-							BallMove[0] = -BallMove[0];
-							BallMove[1] = -BallMove[1];
-							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
-							collided = 1;
-						}
+						
 					}
 				}
 			}
 		}
 		//==============================================================
+
+		
+		//DisplayUpdate
 		//==============================================================
 		
-		//Draw Rectangle and Ball
-		//==============================================================
-		fore = WHITE; // White
-		
-		MoveTo(RectX,0);
-		FillRect(rectWidth, rectHeight);
-		
-		for (i = 0; i != BallData[3]; i++)
+		if (Frame % UpdateFrequency == 0)
 		{
-			glcd_draw_circle(round(BallData[0]), round(BallData[1]), BallData[2]-i);
+			Frame = 0;
+			for (i = 0; i < BallData[3]; i++)
+			{
+				fore = BLACK; // Black
+				glcd_draw_circle(BallLastRenderedPos[0], BallLastRenderedPos[1], BallData[2] - i);
+				fore = WHITE; // White
+				glcd_draw_circle(BallData[0], BallData[1], BallData[2] - i);
+			}
+			BallLastRenderedPos[0] = BallData[0];
+			BallLastRenderedPos[1] = BallData[1];
+			
+			fore = WHITE; // White
+			
+			MoveTo(RectX,RectY);
+			FillRect(rectWidth, rectHeight);
+			
+			MoveTo(10,0);
+			fore = RED;
+			//~ sprintf(buffer, "Score = %d", Score);
+			//~ PlotString(buffer);
 		}
 		//==============================================================
 	}
@@ -336,11 +398,10 @@ int main(void)
 	//~ PlotText(PSTR("Text"));
 
 	  
-	  for (;;)
-	  {
+	for (;;)
+	{
 
-		
-	  }//end of for()
+	}//end of for()
 }//end of main
 
 ISR (TIMER1_COMPA_vect)
