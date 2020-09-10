@@ -163,6 +163,8 @@ int main(void)
 	
 	RectX = 0;
 	RectY = 10;
+	
+	uint8_t comboMult = 0; //The comboMutliplier
 	while (1)
 	{
 		Frame++;
@@ -286,10 +288,11 @@ int main(void)
 			{
 				BuildGrid();
 			}
+			comboMult = 0;
 		}
 		//==============================================================
 		
-		//Check if Ball is Coliding Floor for ball reset
+		//Check if Ball is Coliding Floor and if true reset Game
 		//==============================================================
 		if (BallData[1] < 3)
 		{
@@ -324,12 +327,13 @@ int main(void)
 						//==============================================================
 						if ((BallData[0] + BallData[2]) > (x * BlockSize[0]) && (BallData[0] - BallData[2]) < ((x * BlockSize[0]) + BlockSize[0]) && (((BallData[1] - (size / 2)) == (y * BlockSize[1])) || ((BallData[1] - (size / 2)) == ((y * BlockSize[1]) + BlockSize[1]))))
 						{
+							comboMult++;
 							BlocksStatus[x][y] = 0;
 							BallMove[1] = -BallMove[1];
 							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
 							collided = 1;
 							collided_Platform = 0;
-							Score++;
+							Score += 1 * comboMult;
 						}
 						//==============================================================
 		
@@ -337,12 +341,13 @@ int main(void)
 						//==============================================================
 						else if ((BallData[0] + BallData[2] == (x * BlockSize[0]) || (BallData[0] - BallData[2] == ((x * BlockSize[0]) + BlockSize[0]))) && (((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1]))))
 						{
+							comboMult++;
 							BlocksStatus[x][y] = 0;
 							BallMove[0] = -BallMove[0];
 							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
 							collided = 1;
 							collided_Platform = 0;
-							Score++;
+							Score += 1 * comboMult;
 						}
 						//==============================================================
 						
@@ -350,12 +355,13 @@ int main(void)
 						//==============================================================
 						else if ((BallData[0]) > (x * BlockSize[0]) && (BallData[0]) < ((x * BlockSize[0]) + BlockSize[0]) && (((BallData[1] - (size / 2)) > (y * BlockSize[1])) && ((BallData[1] - (size / 2)) < ((y * BlockSize[1]) + BlockSize[1]))))
 						{
+							comboMult++;
 							BlocksStatus[x][y] = 0;
 							BallMove[0] = -BallMove[0];
 							FillRect(BlockSize[0] - BlockDist, BlockSize[1] - BlockDist);
 							collided = 1;
 							collided_Platform = 0;
-							Score++;
+							Score += 1 * comboMult;
 						}
 						//==============================================================
 					}

@@ -38,7 +38,7 @@ extern int scale;     // Text scale
 //int const ysize = 80, xsize = 160, yoff = 26, xoff = 1, invert = 1, rotate = 0;
 
 // Adafruit 1.44" 128x128 display
- int const ysize = 128, xsize = 128, yoff = 3, xoff = 2, invert = 0, rotate = 3;
+ int const ysize = 128, xsize = 128, yoff = 1, xoff = 2, invert = 0, rotate = 3;
 
 // Adafruit 1.8" 128x160 display
  //int const ysize = 128, xsize = 160, yoff = 0, xoff = 0, invert = 0, rotate = 5;
