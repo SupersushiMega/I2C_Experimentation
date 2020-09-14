@@ -65,6 +65,31 @@ char stringbuffer[20]; // buffer to store string
 
 ISR (TIMER1_COMPA_vect);
 
+uint8_t ISR_zaehler = 0;
+uint8_t ms = 0;
+uint8_t second = 0;
+uint16_t minute = 0;
+ISR (TIMER0_OVF_vect)
+{
+	TCNT0 = 0;
+	ISR_zaehler++;
+	if(ISR_zaehler == 12)
+	{
+		ms++;
+		ISR_zaehler = 0;
+		if (ms == 10)
+		{
+			second ++;
+			ms = 0;
+			if (second == 60)
+			{
+				minute ++;
+				second = 0;
+			}
+		}
+	}
+}//End of ISR
+
 int main(void)
 {
 	DDRB |= (1<<DC) | (1<<CS) | (1<<MOSI) |( 1<<SCK); 	// All outputs
@@ -104,6 +129,14 @@ int main(void)
 
 	setup();
 	
+	//Konfiguration Timer Overflow
+	//==================================================================
+	TCCR0A	= 0x00;
+	TCCR0B	= 0x04;
+	TIMSK0	|= (1 << TOIE0);
+	TIFR0 |= (1 << TOV0);
+	sei();
+	
 	const uint8_t size = 128;
 	
 	const uint8_t rectWidth = 20;
@@ -111,6 +144,9 @@ int main(void)
 	const uint8_t rectSpeed = 2;
 	
 	const uint8_t BlockDist = 1;
+	
+	const uint8_t StartLives = 3;
+	uint8_t lives = StartLives;
 	
 	char buffer[20];
 	
@@ -124,7 +160,7 @@ int main(void)
 	uint8_t collided_Platform = 0;	//Variable to check if the last collision with of the ball was with Rectangle
 	
 	uint8_t Frame = 0;	//Current Frame
-	uint8_t UpdateFrequency = 8; //The amount of Frames between DisplayUpdates
+	uint8_t UpdateFrequency = 4; //The amount of Frames between DisplayUpdates
 	
 	uint8_t BlockGridSize[2];
 	BlockGridSize[0] =	10;	//Horizontal Size
@@ -188,7 +224,7 @@ int main(void)
 		
 		//Autoplay
 		//==============================================================
-		if (1)
+		if (0)
 		{
 			if(BallData[0] > (RectX + (rectWidth / 2)))
 			{
@@ -292,20 +328,25 @@ int main(void)
 		}
 		//==============================================================
 		
-		//Check if Ball is Coliding Floor and if true reset Game
+		//Check if Ball is Coliding Floor and if true reduce Lives if lives 0 then reset game
 		//==============================================================
 		if (BallData[1] < 3)
 		{
+			lives--;
 			BallData[0] = size / 2;
 			BallData[1] = (size / 2) - 10;
 			BallCoord[0] = size / 2;
 			BallCoord[1] = (size / 2) - 10;
 			BallMove[0] = 0;
 			BallMove[1] = -1;
-			Score = 0;
-			ClearDisplay();
-			BuildGrid();
-			collided_Platform = 0;
+			if(lives == 0)
+			{
+				lives = StartLives;
+				Score = 0;
+				ClearDisplay();
+				BuildGrid();
+				collided_Platform = 0;
+			}
 		}
 		//==============================================================
 		
@@ -393,10 +434,47 @@ int main(void)
 			MoveTo(RectX,RectY);
 			FillRect(rectWidth, rectHeight);
 			
-			MoveTo(10,0);
+			MoveTo(0, 0);
 			fore = RED;
-			sprintf(buffer, "Score = %d", Score);
+			sprintf(buffer, "Score: %d", Score);
 			PlotString(buffer);
+			
+			MoveTo(0, size - 10);
+			if (minute < 10)
+			{
+				sprintf(buffer, "Time: 0%d:", minute);
+				PlotString(buffer);
+			}
+			else
+			{
+				sprintf(buffer, "Time: %d:", minute);
+				PlotString(buffer);
+			}
+			
+			if (second < 10)
+			{
+				sprintf(buffer, "0%d:", second);
+				PlotString(buffer);
+			}
+			else
+			{
+				sprintf(buffer, "%d:", second);
+				PlotString(buffer);
+			}
+			
+			for (i = 0; i < StartLives; i++)
+			{
+				if (i < lives)
+				{
+					fore = RED;
+				}
+				else
+				{
+					fore = BLACK;
+				}
+				MoveTo(size - 8, ((i * 8) + 8));
+				FillRect(7,7);
+			}
 		}
 		//==============================================================
 	}
