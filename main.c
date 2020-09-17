@@ -16,6 +16,7 @@
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 #include <math.h>
+#include <avr/eeprom.h>
 #include "st7735.h"
 
 #define BACKLIGHT_ON PORTB |= (1<<PB2)
@@ -90,6 +91,18 @@ ISR (TIMER0_OVF_vect)
 	}
 }//End of ISR
 
+void SPI_MasterTransmit(uint8_t cData)
+{/* Start transmission */
+	SPDR = cData;
+	/* Wait for transmission complete */
+	while(!(SPSR & (1<<SPIF)))
+	;
+}
+
+void ScoreBoard(uint32_t Score, uint16_t PlayMin, uint8_t PlaySec);
+
+const uint8_t size = 128;
+
 int main(void)
 {
 	DDRB |= (1<<DC) | (1<<CS) | (1<<MOSI) |( 1<<SCK); 	// All outputs
@@ -102,6 +115,12 @@ int main(void)
 									//Reset High
 	DDRD &= ~((1<<PD6) | (1<<PD2) | (1<<PD5)); 	//Taster 1-3
 	PORTD |= ((1<<PD6) | (1<<PD2) | (1<<PD5)); 	//PUllups für Taster einschalten
+	
+		//Init SPI		CLK/2
+	//==================================================================
+	SPCR |= (1<<SPE) | (1<<MSTR);
+	SPSR |= (1<<SPI2X);
+	//==================================================================
 	
 		//Timer 1 Configuration
 	OCR1A = 1249;	//OCR1A = 0x3D08;==1sec
@@ -137,8 +156,6 @@ int main(void)
 	TIFR0 |= (1 << TOV0);
 	sei();
 	
-	const uint8_t size = 128;
-	
 	const uint8_t rectWidth = 20;
 	const uint8_t rectHeight = 4;
 	const uint8_t rectSpeed = 2;
@@ -160,7 +177,7 @@ int main(void)
 	uint8_t collided_Platform = 0;	//Variable to check if the last collision with of the ball was with Rectangle
 	
 	uint8_t Frame = 0;	//Current Frame
-	uint8_t UpdateFrequency = 4; //The amount of Frames between DisplayUpdates
+	uint8_t UpdateFrequency = 8; //The amount of Frames between DisplayUpdates
 	
 	uint8_t BlockGridSize[2];
 	BlockGridSize[0] =	10;	//Horizontal Size
@@ -224,7 +241,7 @@ int main(void)
 		
 		//Autoplay
 		//==============================================================
-		if (0)
+		if (1)
 		{
 			if(BallData[0] > (RectX + (rectWidth / 2)))
 			{
@@ -341,6 +358,7 @@ int main(void)
 			BallMove[1] = -1;
 			if(lives == 0)
 			{
+				ScoreBoard(Score, minute, second);
 				lives = StartLives;
 				Score = 0;
 				ClearDisplay();
@@ -477,8 +495,7 @@ int main(void)
 			}
 		}
 		//==============================================================
-	}
-	
+	}	
 	
 	//~ fore = WHITE; // White
 	//~ scale = 2;
@@ -506,6 +523,82 @@ int main(void)
 
 	}//end of for()
 }//end of main
+
+void ScoreBoard(uint32_t Score, uint16_t PlayMin, uint8_t PlaySec)
+	{
+		const uint8_t BoardSize = 6;
+		uint8_t sorted = 0;
+		uint8_t SortCount;
+		char buffer[20];
+		
+		struct BoardItems
+		{
+			uint32_t Score;
+			uint8_t Second;
+			uint16_t Minute;
+			char PlayerName[3];
+		};
+		
+		struct BoardItems Board[BoardSize];
+		struct BoardItems SortBuffer[BoardSize];
+		
+		eeprom_read_block(Board, (void*)1, BoardSize-1);	//Read eeprom
+		
+		Board[BoardSize - 1].Score = Score;	//Input new Score
+		
+		//BoardSorting
+		//==============================================================
+		while(sorted == 0)
+		{
+			sorted = 1;
+			for (SortCount = 1; SortCount < BoardSize; SortCount++)
+			{
+				if (Board[SortCount - 1].Score < Board[SortCount].Score)	//If last Score is smaler than current one then set them switched inside of Buffer
+				{
+					sorted = 0;
+					SortBuffer[SortCount] = Board[SortCount - 1];
+					SortBuffer[SortCount - 1] = Board[SortCount];
+				}
+				else 	//If not set current one in same position in Buffer
+				{
+					SortBuffer[SortCount] = Board[SortCount];
+					if (SortCount == 1)	//if current Score is 1 then set score 0 to position 0 buffer
+					{
+						SortBuffer[SortCount - 1] = Board[SortCount - 1];
+					}
+				}
+			}
+			for (SortCount = 0; SortCount < BoardSize; SortCount++)
+			{
+				Board[SortCount] = SortBuffer[SortCount];	
+			}
+		}
+		eeprom_write_block(Board, (void*)1, BoardSize-1);
+		//==============================================================
+		ClearDisplay();
+		fore = WHITE;
+		//==============================================================
+		
+		//Print Score
+		//==============================================================
+		for (SortCount = 0; SortCount < BoardSize - 1; SortCount++)
+		{
+			MoveTo(0, ((size - 10) - (10 * SortCount)));
+			sprintf(buffer, "%d", Board[SortCount].Score);
+			PlotString(buffer);
+		}
+		while(!T2)
+		{
+			if (T1)	//if T1 is pushed reset score counter
+			{
+				for (SortCount = 0; SortCount < BoardSize; SortCount++)
+				{
+					Board[SortCount].Score = 0;	
+				}
+				eeprom_write_block(Board, (void*)1, BoardSize);
+			}
+		}
+	}
 
 ISR (TIMER1_COMPA_vect)
 {

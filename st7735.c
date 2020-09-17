@@ -167,11 +167,7 @@ const uint8_t CharMap[96][6] PROGMEM = {
 // Send a byte to the display
 void Data (uint8_t d) 
 {
-  for (uint8_t bit = 0x80; bit; bit >>= 1) {
-    PINB = 1<<SCK;                         // sck low
-    if (d & bit) PORTB = PORTB | (1<<MOSI); else PORTB = PORTB & ~(1<<MOSI);
-    PINB = 1<<SCK;                         // sck high
-  }
+	SPI_MasterTransmit(d);
 }
 
 // Send a command to the display
