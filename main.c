@@ -17,6 +17,7 @@
 #include <util/delay.h>
 #include <math.h>
 #include <avr/eeprom.h>
+#include <string.h>
 #include "st7735.h"
 
 #define BACKLIGHT_ON PORTB |= (1<<PB2)
@@ -177,7 +178,7 @@ int main(void)
 	uint8_t collided_Platform = 0;	//Variable to check if the last collision with of the ball was with Rectangle
 	
 	uint8_t Frame = 0;	//Current Frame
-	uint8_t UpdateFrequency = 8; //The amount of Frames between DisplayUpdates
+	uint8_t UpdateFrequency = 1; //The amount of Frames between DisplayUpdates
 	
 	uint8_t BlockGridSize[2];
 	BlockGridSize[0] =	10;	//Horizontal Size
@@ -241,7 +242,7 @@ int main(void)
 		
 		//Autoplay
 		//==============================================================
-		if (1)
+		if (0)
 		{
 			if(BallData[0] > (RectX + (rectWidth / 2)))
 			{
@@ -364,6 +365,8 @@ int main(void)
 				ClearDisplay();
 				BuildGrid();
 				collided_Platform = 0;
+				minute = 0;
+				second = 0;
 			}
 		}
 		//==============================================================
@@ -526,54 +529,141 @@ int main(void)
 
 void ScoreBoard(uint32_t Score, uint16_t PlayMin, uint8_t PlaySec)
 	{
-		const uint8_t BoardSize = 6;
-		uint8_t sorted = 0;
-		uint8_t SortCount;
-		char buffer[20];
-		
-		struct BoardItems
+		//Define Variables
+		//==============================================================
+		const uint16_t startAdress = 0;	//First eeprom adress to write to/read from
+		const uint8_t BoardSize = 6;	//amount of displayed Scores
+		uint8_t sorted = 0;	//used to chek if Scores are Sorted
+		uint64_t Counter;	//Counting Variable
+		uint64_t Counter2;	//Counting Variable
+		char buffer[20];	//Buffer for writing Numbers
+		struct BoardItems	//Used for storing the Scores
 		{
 			uint32_t Score;
-			uint8_t Second;
-			uint16_t Minute;
+			uint16_t ScoreMin;
+			uint8_t ScoreSec;
 			char PlayerName[3];
 		};
 		
-		struct BoardItems Board[BoardSize];
-		struct BoardItems SortBuffer[BoardSize];
+		struct BoardItems Board[BoardSize];	//Score Storage for Unsorted and sorted Scores
+		struct BoardItems SortBuffer[BoardSize];	//Buffer for sorting
+		//==============================================================
 		
-		eeprom_read_block(Board, (void*)1, BoardSize-1);	//Read eeprom
+		//Change -1 values to zero to keep the sorting system working
+		//==============================================================
+		for (Counter = startAdress; Counter < (startAdress + (68 * BoardSize)); Counter++)
+		{
+			fore = WHITE;
+			sprintf(buffer, "%d", eeprom_read_byte((uint8_t*)Counter));
+			PlotString(buffer);
+			if(eeprom_read_byte((uint8_t*)Counter) == 255)
+			{
+				eeprom_write_byte((uint8_t*)startAdress + Counter, 0);	//Read eeprom
+			}
+		}
+		//==============================================================
 		
-		Board[BoardSize - 1].Score = Score;	//Input new Score
+		for (Counter = 0; Counter < BoardSize; Counter++)
+		{
+			Board[Counter].Score = eeprom_read_dword((uint32_t*)startAdress + (32 * Counter));	//Read Score from eeprom
+			Board[Counter].ScoreMin = eeprom_read_word((uint16_t*)startAdress + (16 * Counter) + (32 * BoardSize));	//Read Minutes from eeprom
+			Board[Counter].ScoreSec = eeprom_read_byte((uint8_t*)startAdress + (8 * Counter) + (48 * BoardSize));	//Read Seconds from eeprom
+			eeprom_read_block(Board[Counter].PlayerName, (void*)startAdress + (12 * Counter) + (56 * BoardSize), 3);	//Read Player Name from eeprom
+		}
+		
+		Board[BoardSize - 1].Score = Score;			//Input new Score
+		Board[BoardSize - 1].ScoreMin = PlayMin;	//Input new Minute Time
+		Board[BoardSize - 1].ScoreSec = PlaySec;	//Input new Seconds Time
+		
+		Board[BoardSize - 1].PlayerName[0] = 'A';	//Set Player Name to AAA
+		Board[BoardSize - 1].PlayerName[1] = 'A';	//|
+		Board[BoardSize - 1].PlayerName[2] = 'A';	//|
+		
+		ClearDisplay();
+		//Name Input
+		//==============================================================
+		for (Counter = 0; Counter < 3; Counter++)
+		{
+			scale = 3;
+			while(!T2)
+			{
+				if(T1)
+				{
+					Board[BoardSize - 1].PlayerName[Counter]--;	//Last Letter
+				}
+				
+				if(T3)
+				{
+					Board[BoardSize - 1].PlayerName[Counter]++;	//Next Letter
+				}
+				while(T1 || T3);
+				MoveTo(10, size / 2);
+				for (Counter2 = 0; Counter2 < 3; Counter2++)
+				{
+					if (Counter == Counter2)
+					{
+						fore = BLACK;
+						back = WHITE;
+					}
+					
+					else
+					{
+						fore = WHITE;
+						back = BLACK;
+					}
+					PlotChar(Board[BoardSize - 1].PlayerName[Counter2]);
+				}
+				fore = WHITE;
+				back = BLACK;
+			}
+			while(T2);
+		}
+		scale = 1;
+		
+		fore = WHITE;
 		
 		//BoardSorting
 		//==============================================================
 		while(sorted == 0)
 		{
 			sorted = 1;
-			for (SortCount = 1; SortCount < BoardSize; SortCount++)
+			for (Counter = 1; Counter < BoardSize; Counter++)
 			{
-				if (Board[SortCount - 1].Score < Board[SortCount].Score)	//If last Score is smaler than current one then set them switched inside of Buffer
+				if (Board[Counter - 1].Score < Board[Counter].Score)	//If last Score is smaller than current one then set them switched inside of Buffer
 				{
 					sorted = 0;
-					SortBuffer[SortCount] = Board[SortCount - 1];
-					SortBuffer[SortCount - 1] = Board[SortCount];
+					SortBuffer[Counter] = Board[Counter - 1];
+
+					SortBuffer[Counter - 1] = Board[Counter];
+
 				}
 				else 	//If not set current one in same position in Buffer
 				{
-					SortBuffer[SortCount] = Board[SortCount];
-					if (SortCount == 1)	//if current Score is 1 then set score 0 to position 0 buffer
+					SortBuffer[Counter] = Board[Counter];
+
+					if (Counter == 1)	//if current Score is 1 then set score 0 to position 0 buffer
 					{
-						SortBuffer[SortCount - 1] = Board[SortCount - 1];
+						SortBuffer[Counter - 1] = Board[Counter - 1];
 					}
 				}
 			}
-			for (SortCount = 0; SortCount < BoardSize; SortCount++)
+			for (Counter = 0; Counter < BoardSize; Counter++)
 			{
-				Board[SortCount] = SortBuffer[SortCount];	
+				Board[Counter] = SortBuffer[Counter];	//Set Board equall to buffer
 			}
 		}
-		eeprom_write_block(Board, (void*)1, BoardSize-1);
+		//==============================================================
+		
+		for (Counter = 0; Counter < BoardSize; Counter++)
+		{
+			//Store Data
+			//==========================================================
+			eeprom_write_dword((uint32_t*)startAdress + (32 * Counter), Board[Counter].Score);
+			eeprom_write_word((uint16_t*)startAdress + (16 * Counter) + (32 * BoardSize), Board[Counter].ScoreMin);	
+			eeprom_write_byte((uint8_t*)startAdress + (8 * Counter) + (48 * BoardSize), Board[Counter].ScoreSec);
+			eeprom_write_block(Board[Counter].PlayerName, (void*)startAdress + (12 * Counter) + (56 * BoardSize), 3);
+			//==========================================================
+		}
 		//==============================================================
 		ClearDisplay();
 		fore = WHITE;
@@ -581,22 +671,29 @@ void ScoreBoard(uint32_t Score, uint16_t PlayMin, uint8_t PlaySec)
 		
 		//Print Score
 		//==============================================================
-		for (SortCount = 0; SortCount < BoardSize - 1; SortCount++)
+		for (Counter = 0; Counter < BoardSize; Counter++)
 		{
-			MoveTo(0, ((size - 10) - (10 * SortCount)));
-			sprintf(buffer, "%d", Board[SortCount].Score);
+			MoveTo(0, ((size - 10) - (10 * Counter)));
+			for (Counter2 = 0; Counter2 < 3; Counter2++)
+			{
+				PlotChar(Board[Counter].PlayerName[Counter2]);
+			}
+			sprintf(buffer, "  %d:",Board[Counter].ScoreMin);
+			PlotString(buffer);
+			sprintf(buffer, "%d", Board[Counter].ScoreSec);
+			PlotString(buffer);
+			sprintf(buffer, "  %d", Board[Counter].Score);
 			PlotString(buffer);
 		}
 		while(!T2)
 		{
-			if (T1)	//if T1 is pushed reset score counter
-			{
-				for (SortCount = 0; SortCount < BoardSize; SortCount++)
-				{
-					Board[SortCount].Score = 0;	
-				}
-				eeprom_write_block(Board, (void*)1, BoardSize);
-			}
+			//~ if (T1)
+			//~ {
+				//~ for (Counter = 0; Counter < E2END; Counter++)
+				//~ {
+					//~ eeprom_update_byte((uint8_t*)Counter, 0);	//Read eeprom
+				//~ }
+			//~ }
 		}
 	}
 
