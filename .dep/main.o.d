@@ -18,7 +18,7 @@ main.o: main.c c:/winavr-20100110/lib/gcc/../../avr/include/avr/io.h \
   c:/winavr-20100110/lib/gcc/../../avr/include/util/delay_basic.h \
   c:/winavr-20100110/lib/gcc/../../avr/include/math.h \
   c:/winavr-20100110/lib/gcc/../../avr/include/avr/eeprom.h \
-  c:/winavr-20100110/lib/gcc/../../avr/include/string.h st7735.h
+  c:/winavr-20100110/lib/gcc/../../avr/include/string.h I2C.h st7735.h
 
 c:/winavr-20100110/lib/gcc/../../avr/include/avr/io.h:
 
@@ -61,5 +61,7 @@ c:/winavr-20100110/lib/gcc/../../avr/include/math.h:
 c:/winavr-20100110/lib/gcc/../../avr/include/avr/eeprom.h:
 
 c:/winavr-20100110/lib/gcc/../../avr/include/string.h:
+
+I2C.h:
 
 st7735.h:
